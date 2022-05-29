@@ -107,12 +107,10 @@ class ESN():
         i.e., computes the next network state by applying the recurrent weights
         to the last state & and feeding in the current input and output patterns
         """
-       
         preactivation = np.dot(self.A, state)\
                         + np.dot(self.C, input_pattern)\
                         + self.Z
         return self.activation(preactivation)
-
     
     def fit(self, inputs, outputs, inspect=False):
         """
@@ -157,7 +155,7 @@ class ESN():
         pred_train=np.zeros_like(outputs)  
         for n in range(inputs.shape[0]):
             pred_train[n, :] = np.dot(self.W.T, states[n, :])
-
+        
         return pred_train.T
 
     def predict(self, inputs, continuation=False, upd=False):
@@ -174,13 +172,10 @@ class ESN():
         states = np.zeros((n_samples, self.n_reservoir))
         outputs = np.zeros((n_samples, self.n_outputs))
 
-
-        # states[0, :] = self.laststate
         for n in range(n_samples):
             states[n, :] = self._get_new_state(self.laststate, inputs[n, :])
             outputs[n, :] = np.dot(self.W.T, states[n, :]) 
 
         if upd:
-            # print('upd states: ', states.shape)
             self.laststate = states.reshape(-1)
         return outputs[:]
