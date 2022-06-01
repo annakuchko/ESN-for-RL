@@ -8,8 +8,26 @@ class BeeAgent(AbstractAgent):
                  n_trials:int=100,
                  c:float=0.01):
         """
-        The class for the Bee Agent in the game Bee World.
+        The class for the Bee Agent in the game Bee World
+
+        Parameters
+        ----------
+        environment : TYPE
+            The environment instance.
+        agent : TYPE
+            The agent instance.
+        function : TYPE
+            The value function approximator.
+        n : int
+            The number of time steps in the game.
+        c : float, optional
+            The grid of the game environment. The default is 0.01.
+
+        Returns
+        -------
+        None.
         
+
         Parameters
         ----------
         step_interval : float, optional
@@ -45,7 +63,9 @@ class BeeAgent(AbstractAgent):
 
         """
         
+        
         self.step_interval = step_interval
+        self.initial_location = initial_location
         self.location = initial_location 
         self.reward = None
         self.random_state = random_state
@@ -78,6 +98,7 @@ class BeeAgent(AbstractAgent):
             z = self._simulate_value_fun(step_interval=step_interval, 
                                           n_trials=n_trials, 
                                           cur_reward=cur_reward)
+            # z = np.array(((cur_reward,-self.step_interval),(cur_reward,self.step_interval)))
             val = approximator.predict(z,upd=False).flatten().reshape(1,-1)[0]
             step = self._get_max_val_step(z=z, val=val, 
                                           cur_reward=cur_reward, 
@@ -87,6 +108,7 @@ class BeeAgent(AbstractAgent):
     
     def _get_max_val_step(self, z, val, cur_reward, approximator):
         self.est_reward = max(val)
+        # print('self.est_reward: ', self.est_reward)
         step = z[np.where(val==max(val)),1]
         new_z = np.array((cur_reward, step), dtype=object).reshape(1,-1)
         approximator.predict(inputs=new_z, upd=True).reshape(1,-1)
@@ -112,3 +134,4 @@ class BeeAgent(AbstractAgent):
     def get_location(self):
         loc = (1/self.c) * self.location
         return int(loc)
+

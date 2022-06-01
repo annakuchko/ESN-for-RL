@@ -2,15 +2,16 @@ from BeeWorldGame.bee_world.agent import BeeAgent
 from BeeWorldGame.bee_world.environment import BeeWorldEnv
 from BeeWorldGame.bee_world.function_approximator import ESN
 from BeeWorldGame.bee_world.abstract_game import AbstractGame
-
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.integrate import odeint
     
 class BeeWorldGame(AbstractGame):
     def __init__(self, environment=BeeWorldEnv, 
                  agent=BeeAgent, 
                  function=ESN,
-                 n=2000):
+                 n=2000,
+                 c=0.01):
         """
         Class for creting and simulating the Bee World game 
         (as in https://www.researchgate.net/publication/352738283_Using_Echo_
@@ -66,7 +67,7 @@ class BeeWorldGame(AbstractGame):
 
         """
 
-        super().__init__(environment, agent, function, n)    
+        super().__init__(environment, agent, function, n, c)    
         self.function = function(2,1)
         
     def run_game(self, mode):
@@ -74,37 +75,44 @@ class BeeWorldGame(AbstractGame):
         self.init_environment()
         
         if mode=='init':
+            self._init_z_end_loc()
             self._init_upd()
             
         elif mode=='train':
+            self._init_z_end_loc()
             self._train_upd()
+            
+        elif mode=='solution':
+            self._init_z_end_loc()
+            self._analytic_solution()
 
         
     def _init_upd(self):
         policy_type='uniform'
         n = self.n
-        z = np.zeros((n,2))
-        locations = np.zeros((n,1))
+        z = self.z
         env = self.Environment.n
+        locations = self.locations
         for t in range(n):
             step = self.Agent.policy(policy_type=policy_type)
             loc = self.Agent.get_location()
             reward = env[t,loc]
             z[t,:] = np.array((reward,step)) 
             locations[t,:] = int(loc)
+        
+        self.z = z
         self.est_rewards = self.function.fit(
             inputs=z[:,:], 
             outputs=z[:,0].reshape(-1,1)
             ).flatten()
-        self.z = z
         self.locations = locations.flatten()
         
     def _train_upd(self):
         policy_type='upd_policy'
         n = self.n
         z=self.z
-        locations = np.zeros((n,1))
         env = self.Environment.n
+        locations = self.locations
         r0 = z[-1,0]
         est_rewards = []
         for t in range(n):
@@ -122,11 +130,51 @@ class BeeWorldGame(AbstractGame):
         self.z = z
         self.locations = locations.flatten()
         
+    def _analytic_solution(self, y_init=0, v_init=0, tau_init=0, eps=10**-5):
+        fun = self.Environment.environment_ode_sys
+        c = self.c
+        n = self.n
+        env = self.Environment.n
+        sol = odeint(func=fun,
+                    t = np.arange(0, n, c),
+                    y0=[y_init, v_init, tau_init],
+                    args = ([self.Agent.step_interval,
+                              self.Environment.w,
+                              eps,
+                              self.function.gamma],),
+                    tfirst=True
+                    )
+        loc = sol[0:int(n/c):int(1/c),0]
+        loc = self._correct_analytic_trajectory(loc, c)
         
-    def plot_rewards(self,s=250):
+        for i, el in enumerate(loc):
+            self.z[i,:] = np.array((env[i, el], 0), dtype=object) 
+        
+        self.locations = loc
+        
+    def _init_z_end_loc(self):
+        self.z = np.zeros((self.n,2))
+        self.locations = np.zeros((self.n,1))
+    
+    def _correct_analytic_trajectory(self, loc, c):
+        for i, l in enumerate(loc):
+            if l<0:
+                loc[i] = 1-c
+                loc[i+1:] = 1-c+loc[i+1:]
+            elif l>1-c:
+                loc[i] = 0
+                loc[i+1:] = loc[i+1:]-(1-c)
+            else:
+                loc[i] = l
+       
+        loc = (loc/c).astype(int)
+        return loc
+    
+    def plot_rewards(self,s=250, solution=False):
         plt.figure(figsize=(15,5))
         plt.plot(self.z[:s,0], color='g')
-        plt.plot(self.est_rewards[:s], color='r')
+        if not solution:
+            plt.plot(self.est_rewards[:s], color='r')
         plt.show()
     
     def plot_game(self, s=250):
@@ -137,6 +185,7 @@ class BeeWorldGame(AbstractGame):
         plt.scatter(range(s),locations[:s], 
                     color='white',s=50)
         plt.show()
+        
 
         
 if __name__=='__main__':
@@ -151,6 +200,16 @@ if __name__=='__main__':
     BeeGame.plot_rewards()
     BeeGame.plot_game()
     print(BeeGame.z[:,0].mean())
+    
+    BeeGame.run_game(mode='solution')
+    BeeGame.plot_rewards(solution=True)
+    BeeGame.plot_game()
+    print(BeeGame.z[:,0].mean())
+    
+    # BeeGame.analytic_bee_world()
+    # BeeGame.plot_game()
+    # print(BeeGame.rewards.mean())
+    
 
         
         

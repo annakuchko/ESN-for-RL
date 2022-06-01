@@ -84,6 +84,41 @@ class BeeWorldEnv(AbstractEnv):
         """
         return 1+(np.cos(t*w)*np.sin(2*np.pi*y))
     
+    def environment_ode_sys(self, t, U, params):
+        '''
+        Defines the environment control problem in terms of the 
+        dynamical system of second order ODEs which can be solved 
+        with scipy.integrate.odeint
+
+        Parameters
+        ----------
+        t: array
+            A sequence of time points for which to solve for y. The initial 
+            value point should be the first element of this sequence. This 
+            sequence must be monotonically increasing or monotonically 
+            decreasing; repeated values are allowed.
+        U : array
+            Initial condition on y (can be a vector).
+        params : tuple
+            Parameters of the system.
+
+        Returns
+        -------
+        list
+            Returns the lyst of the solutions to the ode system determining 
+            the location of the bee in the environment.
+
+        '''
+        c, w, eps, gamma = params
+        y, v, tau  = U
+        a = (2*c*np.cos((np.pi*v)/(2*c))**2)/np.pi
+        b = (4*c*np.cos(w*tau)*np.cos(2*np.pi*y))/eps
+        c = np.log(gamma)*np.tan((np.pi*v)/(2*c))
+        dtaudt = 1
+        
+        dvdt = a*(b+c)
+        return [v, dvdt, dtaudt]
+    
     def plot_environment(self, steps=250):
         """
         Plots the environment evolution
