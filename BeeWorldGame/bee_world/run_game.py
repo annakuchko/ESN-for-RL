@@ -1,17 +1,11 @@
-from BeeWorldGame.bee_world.agent import BeeAgent
-from BeeWorldGame.bee_world.environment import BeeWorldEnv
-from BeeWorldGame.bee_world.function_approximator import ESN
+
 from BeeWorldGame.bee_world.abstract_game import AbstractGame
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import odeint
     
 class BeeWorldGame(AbstractGame):
-    def __init__(self, environment=BeeWorldEnv, 
-                 agent=BeeAgent, 
-                 function=ESN,
-                 n=2000,
-                 c=0.01):
+    def __init__(self, config):
         """
         Class for creting and simulating the Bee World game 
         (as in https://www.researchgate.net/publication/352738283_Using_Echo_
@@ -66,9 +60,50 @@ class BeeWorldGame(AbstractGame):
         None.
 
         """
-
-        super().__init__(environment, agent, function, n, c)    
-        self.function = function(2,1)
+        if config.environment=='BeeWorldEnv':
+            from BeeWorldGame.bee_world.environment import BeeWorldEnv
+            self.environment = BeeWorldEnv(
+                steps=config.steps, 
+                w=config.w, 
+                c=config.c,
+                circle_length=config.circle_length
+                )
+        
+        if config.agent=='BeeAgent':
+            from BeeWorldGame.bee_world.agent import BeeAgent
+            self.agent = BeeAgent(
+                step_interval=config.step_interval,
+                initial_location=config.initial_location,
+                random_state=config.random_state,
+                n_trials=config.n_trials,
+                c=config.c
+                )
+        
+        if config.function=='ESN':
+            from BeeWorldGame.bee_world.function_approximator import ESN
+            self.function = ESN(
+                n_inputs=config.n_inputs, 
+                n_outputs=config.n_outputs,
+                n_reservoir=config.n_reservoir, 
+                activation=config.activation,
+                two_norm=config.two_norm, 
+                sparsity=config.sparsity, 
+                random_state=config.random_state, 
+                L2=config.L2, 
+                gamma=config.gamma, 
+                sampling_bounds=config.sampling_bounds
+                )
+        
+        self.n = config.n
+        self.c = config.c
+        
+        
+    def init_agent(self):
+        self.Agent = self.agent
+    
+    def init_environment(self):
+        self.Environment = self.environment
+        self.Environment.create_environment()
         
     def run_game(self, mode):
         self.init_agent()
@@ -189,7 +224,65 @@ class BeeWorldGame(AbstractGame):
 
         
 if __name__=='__main__':
-    BeeGame = BeeWorldGame()
+    import argparse
+    parser = argparse.ArgumentParser(
+        description='Arguments for the BeeWorld game'
+        )
+
+    # Agent arguments
+    parser.add_argument('--step_interval', type=float, default=0.1, 
+                        help='The interval of the agent moves in the '
+                        'environment')
+    parser.add_argument('--initial_location', type=float, default=0.5, 
+                        help='The relative starting position of the agent in '
+                        'the environment')
+    parser.add_argument('--random_state', default=2022, help='The random state'
+                        ' value')
+    parser.add_argument('--n_trials', type=int, default=100, help='The number '
+                        'of simulated steps to evaluate')
+    # Environment arguments
+    parser.add_argument('--steps', type=int, default=2000, help='The time over'
+                        ' which the environment evolves')
+    parser.add_argument('--w', type=float, default=0.1, help='Speed at which'
+                        ' the environment evolves over time')
+    parser.add_argument('--circle_length', type=int, default=1, 
+                        help='The length of a circle')
+    parser.add_argument('--c', type=float, default=0.01, help='The grid of the'
+                        ' game environment')
+    # Game arguments
+    parser.add_argument('--environment', type=str, default='BeeWorldEnv',
+                        help='The name of the environment')
+    parser.add_argument('--agent', type=str, default='BeeAgent', help='The '
+                        'name of the agent')
+    parser.add_argument('--function',type=str, default='ESN', help=' name of '
+                        'the value function approximator')
+    parser.add_argument('--n', type=int, default=2000, help='The number of '
+                        'time steps in the game')
+    # function approximator arguments
+    parser.add_argument('--n_inputs', default=2, help='The dimensionality of '
+                        'the input')
+    parser.add_argument('--n_outputs', default=1, help='The dimensionality of '
+                        'the output')
+    parser.add_argument('--n_reservoir', default=300, help='The size of the '
+                        'reservoir')
+    parser.add_argument('--activation', default='ReLU', help='The activation '
+                        'function')
+    parser.add_argument('--two_norm', type=float, default=1, help='The 2-norm '
+                        'of the recurrent weight matrix')
+    parser.add_argument('--sparsity', type=float, default=0.0, 
+                        help='The proportion of recurrent weights set to zero')
+    parser.add_argument('--L2', type=float, default=10**-9, 
+                        help='The regularisation parameter of the ridge '
+                        'regression')
+    parser.add_argument('--gamma', type=float, default=0.5, help='The discount'
+                        ' factor of the value function')
+    parser.add_argument('--sampling_bounds', type=float, default=0.1, 
+                        help='The uniform bounds of the interval from which to'
+                        ' sample the random matrices') 
+
+    config = parser.parse_args()
+    
+    BeeGame = BeeWorldGame(config)
     
     BeeGame.run_game(mode='init')
     BeeGame.plot_rewards()
@@ -205,11 +298,6 @@ if __name__=='__main__':
     BeeGame.plot_rewards(solution=True)
     BeeGame.plot_game()
     print(BeeGame.z[:,0].mean())
-    
-    # BeeGame.analytic_bee_world()
-    # BeeGame.plot_game()
-    # print(BeeGame.rewards.mean())
-    
 
         
         

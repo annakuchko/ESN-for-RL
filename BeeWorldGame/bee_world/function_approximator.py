@@ -8,10 +8,10 @@ def relu(x):
     return x
 
 class ESN():
-    def __init__(self, n_inputs:int, n_outputs:int, n_reservoir:int=300, 
-                 activation=None, two_norm:float=1, sparsity:float=0.0, 
+    def __init__(self, n_inputs:int, n_outputs:int or None, n_reservoir:int or None=300, 
+                 activation:str='ReLU', two_norm:float=1, sparsity:float=0.0, 
                  random_state:int=2022, L2:float=10**-9, 
-                 gamma:float=0.5, sampling_bounds:float=0.05):
+                 gamma:float=0.5, sampling_bounds:float=0.1):
         """
         The class for the ESN model.
 
@@ -59,8 +59,10 @@ class ESN():
         self.sparsity = sparsity
         if activation is None:
             self.activation = relu
+        elif activation=='ReLU':
+            self.activation = relu
         else:
-            self.activation = activation
+            raise(NotImplementedError)
         self.L2 = L2
         self.gamma = gamma
         self.sampling_bounds = sampling_bounds

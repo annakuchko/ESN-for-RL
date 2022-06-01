@@ -12,24 +12,6 @@ class BeeAgent(AbstractAgent):
 
         Parameters
         ----------
-        environment : TYPE
-            The environment instance.
-        agent : TYPE
-            The agent instance.
-        function : TYPE
-            The value function approximator.
-        n : int
-            The number of time steps in the game.
-        c : float, optional
-            The grid of the game environment. The default is 0.01.
-
-        Returns
-        -------
-        None.
-        
-
-        Parameters
-        ----------
         step_interval : float, optional
             The interval of the agent moves in the environment. The default 
             is 0.1.

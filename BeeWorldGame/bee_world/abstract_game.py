@@ -28,10 +28,10 @@ class AbstractGame:
         self.c = c
         
     def init_agent(self):
-        self.Agent = self.agent(c=self.c)
+        self.Agent = self.agent()
     
     def init_environment(self):
-        self.Environment = self.environment(steps=self.n, c=self.c)
+        self.Environment = self.environment()
         self.Environment.create_environment()
     
     def run_game(self, mode):
