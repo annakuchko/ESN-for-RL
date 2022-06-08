@@ -1,7 +1,7 @@
 from MarketMaker.market_maker.abstract_game import AbstractGame
 import numpy as np
 import matplotlib.pyplot as plt
-# from scipy.integrate import odeint
+import seaborn as sns
     
 class MarketMakerGame(AbstractGame):
     def __init__(self, config):
@@ -51,14 +51,27 @@ class MarketMakerGame(AbstractGame):
             The agent instance. The default is MarketAgent.
         function : TYPE, optional
             The value function approximator. The default is ESN.
-        n : TYPE, optional
+        n : int, optional
             The number of time steps in the game. The default is 10000.
-
+        alpha: float, optional
+            The cost of operating the control. The default is 1.
+        beta: float, optional
+            The cost of straying from the origin. The default is 1.
+        eps: float, optional
+            The time step parameter. the default is 1.
+        sigma: float, optional
+            The volatility parameter. The default is 1.
+        loc: The mean parameter of the normal distribution. The default is 0.
+        r: The baseline priofit parameter. The default is 0.
+        eta: The constant rate of the exponential drift toward zero. 
+        The default is 0.05.
+            
         Returns
         -------
         None.
 
         """
+        
         self.config = config
         if config.agent=='MarketAgent':
             from MarketMaker.market_maker.agent import MarketAgent
@@ -117,8 +130,8 @@ class MarketMakerGame(AbstractGame):
             step = self.Agent.policy(policy_type=policy_type,
                                           cur_inventory=y_prev)
             inv = self.Agent.get_inventory()
-            z[t,:] = np.array((inv,step)) 
-            rewards[t,:] = self._reward_fun(step, y_prev)
+            z[t,:] = np.array((inv,step), dtype=object) 
+            rewards[t,:] = self._reward_fun(step, inv)
             y_prev = inv
         self.z = z
         self.rewards = rewards.flatten()
@@ -132,24 +145,22 @@ class MarketMakerGame(AbstractGame):
         n = self.n
         z = self.z
         rewards = self.rewards
-        est_rewards = []
         y_prev = self.initial_inventory
         for t in range(n):
             step = self.Agent.policy(policy_type=policy_type,
                                           cur_inventory=y_prev,
                                           approximator=self.function)
             inv = self.Agent.get_inventory()
-            est_rewards.append(self.Agent.est_reward)
+            self.est_rewards[t] = self.Agent.est_reward
             z[t,:] = np.array((inv,step), dtype=object) 
-            rewards[t,:] = self._reward_fun(step, y_prev)
+            rewards[t,:] = self._reward_fun(step, inv)
             y_prev = inv
 
-        self.est_rewards = np.array(est_rewards)
         self.z = z
         self.rewards = rewards.flatten()
         
-    def _reward_fun(self,step, y_prev):
-        return -(self.alpha*step**2 + self.beta*y_prev)
+    def _reward_fun(self,step, new_inv):
+        return -(self.alpha*step**2 + self.beta*new_inv)
     
     def _analytic_solution(self):
         self.inventory_range = np.arange(-5,5,0.01)
@@ -178,22 +189,46 @@ class MarketMakerGame(AbstractGame):
         self.z = np.zeros((self.n,2))
         self.rewards = np.zeros((self.n,1))
       
-    def plot_rewards(self,s=250, plot_solution=True):
+    def plot_inventory_reward(self,s=250, plot_solution=True):
         plt.figure(figsize=(10,10))
         plt.plot(self.inventory_range, self.values_opt, color = 'green', label='Optimal reward')
         plt.scatter(self.z[:,0], self.rewards, color='orange', label = 'Observed reward')
         plt.scatter(self.z[:,0], self.est_rewards, color='red', s=0.5, label = f'Estimated reward ({self.config.function})')
+        plt.xlabel('Inventory')
+        plt.ylabel('Reward')
         plt.legend()
         plt.show()
     
     def plot_game(self, s=250):
         plt.figure(figsize=(15,5))
         plt.plot(self.z[:s,0], color='r', label='Inventory levels')
+        plt.xlabel('Time')
+        plt.ylabel('Inventory')
+        plt.legend()
+        plt.show()
+            
+    def plot_rewards(self, s=250):
+        plt.figure(figsize=(15,5))
+        plt.plot(self.rewards[:s], color='g', label='Observed reward')
+        plt.plot(self.est_rewards[:s], color='r', label='Estimated reward')
+        plt.xlabel('Time')
+        plt.ylabel('Reward')
         plt.legend()
         plt.show()
         
-
+    def plot_inventory_action(self):
+        plt.figure(figsize=(10,10))
+        plt.scatter(self.z[:,0], self.z[:,1])
+        plt.xlabel('Inventory')
+        plt.ylabel('Action')
+        plt.show()
         
+    def plot_inventory_distribution(self):
+        plt.figure(figsize=(10,10))
+        sns.distplot(self.z[:,0], kde=True, hist=True, kde_kws={'color':'r'})
+        plt.xlabel('Inventory')
+        plt.ylabel('Probability density')
+        plt.show()        
 if __name__=='__main__':
     import argparse
     parser = argparse.ArgumentParser(
@@ -211,8 +246,6 @@ if __name__=='__main__':
                         help='The initial amount of inventory held by the agent')
 
     # Game arguments
-    parser.add_argument('--steps', type=int, default=10000, help='The time over'
-                        ' which the environment evolves')
     parser.add_argument('--agent', type=str, default='MarketAgent', help='The '
                         'name of the agent')
     parser.add_argument('--function',type=str, default='ESN', help=' name of '
@@ -233,9 +266,6 @@ if __name__=='__main__':
                         'profit parameter')
     parser.add_argument('--eta', type=float, default=0.05, help='The constant'
                         ' representing the rate of exponential drift toward 0')
-    # parser.add_argument('--delta', type=float, default=1, help='Probability of'
-    #                     ' the ESN existance')
-    
 
     # function approximator arguments
     parser.add_argument('--n_inputs', default=2, help='The dimensionality of '
@@ -248,9 +278,9 @@ if __name__=='__main__':
                         'function')
     parser.add_argument('--two_norm', type=float, default=1, help='The 2-norm '
                         'of the recurrent weight matrix')
-    parser.add_argument('--sparsity', type=float, default=0.0, 
-                        help='The proportion of recurrent weights set to zero')
-    parser.add_argument('--L2', type=float, default=10**-8, 
+    parser.add_argument('--sparsity', type=float, default=0.0,
+                        help='The proportion of recurrent wesights set to zero')
+    parser.add_argument('--L2', type=float, default=10**-2, 
                         help='The regularisation parameter of the ridge '
                         'regression')
     parser.add_argument('--gamma', type=float, default=np.exp(-1), help='The discount'
@@ -264,11 +294,20 @@ if __name__=='__main__':
     MMGame = MarketMakerGame(config)
     
     MMGame.run_game(mode='init')
-    MMGame.plot_rewards(plot_solution=True)
+    MMGame.plot_inventory_reward(plot_solution=True)
     MMGame.plot_game()
-    print(MMGame.z[:,0].mean())
+    MMGame.plot_rewards()
+    print(f'Avg inventory: {MMGame.z[:,0].mean()}')
+    print(f'Avg reward: {MMGame.z[:,1].mean()}')
+    MMGame.plot_inventory_action()
+    MMGame.plot_inventory_distribution()
     
     MMGame.run_game(mode='train')
+    MMGame.plot_inventory_reward(plot_solution=True)
     MMGame.plot_game()
-    print(MMGame.z[:,0].mean())
+    MMGame.plot_rewards()
+    print(f'Avg inventory: {MMGame.z[:,0].mean()}')
+    print(f'Avg reward: {MMGame.z[:,1].mean()}')
+    MMGame.plot_inventory_action()
+    MMGame.plot_inventory_distribution()
         

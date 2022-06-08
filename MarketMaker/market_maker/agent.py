@@ -9,16 +9,13 @@ class MarketAgent(AbstractAgent):
                  sigma:float=1,
                  loc:float=0.0):
         """
-        The class for the Bee Agent in the game Bee World
+        The class for the Market Agent in the game Market Maker
 
         Parameters
         ----------
-        step_interval : float, optional
-            The interval of the agent moves in the environment. The default 
-            is 0.1.
-        initial_location : float, optional
-            The relative starting position of the agent in the environment. 
-            The default is 0.5.
+        initial_inventory : float, optional
+            The initial level of inventory held by the agent.
+            The default is 0.0.
         random_state : int, optional
             The random state value. The default is 2022.
         n_trials : int, optional
@@ -32,13 +29,15 @@ class MarketAgent(AbstractAgent):
             action with the greatest estimated value - which determines the 
             new policy. The action-reward pair with the greatest reward is then 
             used to update the reservoir state.The default is 100.
-        c : float, optional
-            The grid of the game environment. The default is 0.01.
-
-        Raises
-        ------
-        Exception
-            Exception for the invalid random seed..
+        eta : float, optional
+            A constant representing the rate of exponential drift toward 0. 
+            The default is 0.05.
+        sigma: float, optional
+            The volatility parmaeter of the normal distribution from which we 
+            sample the policy. The default is 1. 
+        loc: float, optional
+            The parameter representing the mean of the normal distribution 
+            from which we sample the strategy. The default is 0.0.
 
         Returns
         -------
@@ -80,18 +79,18 @@ class MarketAgent(AbstractAgent):
         elif policy_type=='upd_policy':
             z = self._simulate_inv_step_pairs(n_trials=n_trials, 
                                           cur_inventory=cur_inventory)
-            val = approximator.predict(z,upd=False).flatten().reshape(1,-1)[0]
+            val = approximator.predict(z,upd=False).reshape(1,-1)[0]
             step = self._get_max_val_step(z=z, val=val, 
                                           cur_inventory=cur_inventory, 
                                           approximator=approximator)
             self.make_step(step, cur_inventory)
-            # self.inventory = step - self.eta*cur_inventory
             approximator.predict(np.array((cur_inventory,step), dtype=object).reshape(1,-1),upd=True)
         return step
     
     def _get_max_val_step(self, z, val, cur_inventory, approximator):
-        self.est_reward = max(val)
-        step = z[np.where(val==max(val)),1][0][0]
+        min_abs_id = np.where(val==max(val))
+        self.est_reward = val[min_abs_id]
+        step = z[min_abs_id,1][0][0]
         new_z = np.array((cur_inventory, step), dtype=object).reshape(1,-1)
         approximator.predict(inputs=new_z, upd=True).reshape(1,-1)
         return step 
@@ -105,7 +104,6 @@ class MarketAgent(AbstractAgent):
     
     def make_step(self, step, cur_inventory):
         self.inventory = step - self.eta*cur_inventory
-        
         
     def get_inventory(self):
         return self.inventory
