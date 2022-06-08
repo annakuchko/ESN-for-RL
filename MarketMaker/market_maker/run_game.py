@@ -298,7 +298,7 @@ if __name__=='__main__':
     MMGame.plot_game()
     MMGame.plot_rewards()
     print(f'Avg inventory: {MMGame.z[:,0].mean()}')
-    print(f'Avg reward: {MMGame.z[:,1].mean()}')
+    print(f'Avg reward: {MMGame.rewards.mean()}')
     MMGame.plot_inventory_action()
     MMGame.plot_inventory_distribution()
     
@@ -307,7 +307,7 @@ if __name__=='__main__':
     MMGame.plot_game()
     MMGame.plot_rewards()
     print(f'Avg inventory: {MMGame.z[:,0].mean()}')
-    print(f'Avg reward: {MMGame.z[:,1].mean()}')
+    print(f'Avg reward: {MMGame.rewards.mean()}')
     MMGame.plot_inventory_action()
     MMGame.plot_inventory_distribution()
         
